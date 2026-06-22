@@ -159,6 +159,13 @@ td { padding: 8px 13px; vertical-align: middle; }
 .pip-pill { cursor:pointer; transition:border-color 0.15s, background 0.15s; }
 .pip-pill:hover { background:#252d45; border-color:#4f8ef7; }
 
+/* ── Stage Filter Bar ── */
+.stage-filter-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0 14px; border-bottom: 1px solid #2a3050; margin-bottom: 14px; }
+.stage-pill { background: #1e2335; border: 1px solid #2a3050; color: #94a3b8; padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
+.stage-pill:hover { border-color: #4a5a80; color: #e2e8f0; }
+.stage-pill.active { color: #0f1117; font-weight: 700; border-color: transparent; }
+.stage-pill.all-pill.active { background: #e2e8f0; }
+
 @media (max-width: 768px) {
   .dash { padding: 12px; }
   .charts-grid { grid-template-columns: 1fr; }
@@ -206,6 +213,9 @@ td { padding: 8px 13px; vertical-align: middle; }
   <div id="loadingBar" class="loading-bar">Loading contracts data…</div>
 
   <div id="content" style="display:none">
+
+    <!-- Stage Filter Bar -->
+    <div class="stage-filter-bar" id="stageFilterBar"></div>
 
     <!-- KPI Row 1: Total, Over 60, 45-60, 0-30, Pending -->
     <div class="kpi-row" id="row1"></div>
@@ -338,7 +348,7 @@ const CRM_ORDER = ['Contracted','Electromechanic','Shablona','Designer Working',
   'OTO','Auditing','Production','Final QC','Store','Recheck',
   'Shipping','Installation','Delivered','Declined'];
 
-let ALL = [], FILTERED = [], activeDesigner = 'All';
+let ALL = [], FILTERED = [], activeDesigner = 'All', activeStage = 'All';
 
 // ── Password ──────────────────────────────────────────────────────────────
 function checkPw() {
@@ -430,8 +440,10 @@ function applyFilters() {
       const d = new Date(r.date); if (isNaN(d)) return false;
       if (d.toLocaleString('en',{month:'long',year:'numeric'}) !== m) return false;
     }
+    if (activeStage !== 'All' && r.crm !== activeStage) return false;
     return true;
   });
+  renderStageFilter();
   render();
 }
 
@@ -690,6 +702,45 @@ function statusBadge(s) {
   if (s === 'الغاء')         return `<span class="sb sb-cancelled">${s}</span>`;
   if (s === 'مرتجع')         return `<span class="sb sb-return">${s}</span>`;
   return `<span class="sb sb-other">${s||'—'}</span>`;
+}
+
+// ── Stage Filter ──────────────────────────────────────────────────────────
+function renderStageFilter() {
+  // Count per stage from full ALL (not FILTERED) so counts reflect unfiltered data
+  const counts = {};
+  ALL.filter(r => {
+    const s = document.getElementById('searchInp').value.toLowerCase();
+    const m = document.getElementById('monthSel').value;
+    if (s && !r.name.toLowerCase().includes(s) &&
+        !r.orderId.includes(s) && !r.designer.toLowerCase().includes(s)) return false;
+    if (m) {
+      const d = new Date(r.date); if (isNaN(d)) return false;
+      if (d.toLocaleString('en',{month:'long',year:'numeric'}) !== m) return false;
+    }
+    return true;
+  }).forEach(r => { if (r.crm) counts[r.crm] = (counts[r.crm] || 0) + 1; });
+
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const bar = document.getElementById('stageFilterBar');
+  bar.innerHTML = [
+    `<button class="stage-pill all-pill ${activeStage === 'All' ? 'active' : ''}"
+      style="${activeStage === 'All' ? 'background:#e2e8f0' : ''}"
+      onclick="setStage('All')">All Stages <span style="opacity:.6">(${total})</span></button>`
+  ].concat(CRM_ORDER.map(stage => {
+    const c = counts[stage] || 0;
+    const clr = CRM_CLR[stage] || '#94a3b8';
+    const isActive = activeStage === stage;
+    return `<button class="stage-pill ${isActive ? 'active' : ''}"
+      style="${isActive ? `background:${clr};border-color:${clr}` : `border-color:${clr}33;color:${clr}`}"
+      onclick="setStage('${stage}')">
+      ${stage} <span style="opacity:.7">(${c})</span>
+    </button>`;
+  })).join('');
+}
+
+function setStage(stage) {
+  activeStage = stage;
+  applyFilters();
 }
 
 // ── Safe Zone Modal ───────────────────────────────────────────────────────
