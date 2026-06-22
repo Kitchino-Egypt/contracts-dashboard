@@ -220,6 +220,23 @@ td { padding: 8px 13px; vertical-align: middle; }
     <div class="section-lbl">CRM STATUS PIPELINE</div>
     <div class="pipeline-wrap" id="pipeline"></div>
 
+    <!-- Safe Zone Modal -->
+    <div class="crm-modal-overlay" id="safeModal" onclick="if(event.target===this)closeSafeModal()">
+      <div class="crm-modal" style="max-width:960px">
+        <div class="crm-modal-hdr">
+          <div class="crm-modal-title" id="safeModalTitle"></div>
+          <button class="crm-modal-close" onclick="closeSafeModal()">✕</button>
+        </div>
+        <div class="crm-modal-body">
+          <div id="safeModalPipeline" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px"></div>
+          <table>
+            <thead><tr><th>Order ID</th><th>Client</th><th>Designer</th><th>Contract Status</th><th>CRM Stage</th><th>Aging</th><th>Age</th><th>Date</th></tr></thead>
+            <tbody id="safeModalTbl"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- CRM Drill-down Modal -->
     <div class="crm-modal-overlay" id="crmModal" onclick="if(event.target===this)closeCrmModal()">
       <div class="crm-modal">
@@ -302,7 +319,7 @@ td { padding: 8px 13px; vertical-align: middle; }
 const SHEET_ID = '1aNmKdJRIQosNpvAwH5CfZUaNZvfZ9yHgoK6yflGi5cA';
 const GID      = '696153871';
 const PW       = 'Kitchino_20200';
-const SAFE_CRM = ['Production','Store','Installation','Delivered'];
+const SAFE_CRM = ['OTO','Auditing','Production','Final QC','Store','Recheck','Shipping','Installation','Delivered','Declined'];
 // Stages where contract is still critical (pre-production). Anything after this = not urgent.
 const CRITICAL_CRM = new Set(['contracted','electromechanic','shablona','designer working']);
 
@@ -486,11 +503,12 @@ function renderKPIs() {
       <div class="big-val" style="color:#fbbf24">${invoices}</div>
       <div class="big-sub">${pct(invoices,n)}% of total</div>
     </div>
-    <div class="kpi kpi-safe" style="flex:1;min-width:130px">
+    <div class="kpi kpi-safe" style="flex:1;min-width:130px;cursor:pointer" onclick="openSafeModal()" title="Click to view Safe Zone breakdown">
       <div class="kpi-lbl">✅ SAFE ZONE</div>
       <div class="kpi-val">${safe}</div>
       <div class="kpi-sub">${pct(safe,n)}% of total</div>
-      <div style="font-size:9px;color:#34d39966;margin-top:5px;line-height:1.4">Production · Store<br>Installation · Delivered</div>
+      <div style="font-size:9px;color:#34d39966;margin-top:5px;line-height:1.4">OTO → Delivered</div>
+      <div style="font-size:9px;color:#34d399;margin-top:4px">Click for breakdown →</div>
     </div>
   `;
 
@@ -674,6 +692,50 @@ function statusBadge(s) {
   return `<span class="sb sb-other">${s||'—'}</span>`;
 }
 
+// ── Safe Zone Modal ───────────────────────────────────────────────────────
+function openSafeModal() {
+  const safeContracts = FILTERED.filter(r => r.safe);
+  // Stage breakdown pills
+  const stageCounts = {};
+  safeContracts.forEach(r => {
+    const stage = r.crm || '—';
+    stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+  });
+  const orderedStages = SAFE_CRM.filter(s => stageCounts[s]);
+  document.getElementById('safeModalTitle').innerHTML =
+    `<span style="color:#34d399">✅</span> Safe Zone <span style="color:#6b7a9e;font-weight:400;font-size:12px">${safeContracts.length} contracts</span>`;
+  document.getElementById('safeModalPipeline').innerHTML = orderedStages.map(stage => {
+    const c = stageCounts[stage] || 0;
+    const clr = CRM_CLR[stage] || '#34d399';
+    return `<div class="pip-pill" style="cursor:default;min-width:90px;text-align:center">
+      <div class="pip-val" style="color:${clr}">${c}</div>
+      <div class="pip-lbl">${stage}</div>
+      <div class="pip-pct">${pct(c, safeContracts.length)}%</div>
+    </div>`;
+  }).join('');
+  document.getElementById('safeModalTbl').innerHTML = safeContracts.length
+    ? safeContracts.map(r => {
+        const clr = CRM_CLR[r.crm] || '#34d399';
+        const agingBadge = {'Over 60 Days':'ab-over60','60 Days':'ab-60','45 Days':'ab-45','0-30 Days':'ab-030'}[r.aging]||'ab-no';
+        return `<tr>
+          <td class="td-id">${r.orderId}</td>
+          <td>${r.name}</td>
+          <td class="td-designer">${r.designer || '—'}</td>
+          <td>${statusBadge(r.status)}</td>
+          <td><span class="crm-b" style="color:${clr}">${r.crm || '—'}</span></td>
+          <td><span class="ab ${agingBadge}">${r.aging}</span></td>
+          <td style="color:#94a3b8">${r.age ? r.age + 'd' : '—'}</td>
+          <td class="td-date">${r.date || '—'}</td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="8" style="text-align:center;color:#6b7a9e;padding:24px">No safe zone contracts</td></tr>`;
+  document.getElementById('safeModal').classList.add('open');
+}
+
+function closeSafeModal() {
+  document.getElementById('safeModal').classList.remove('open');
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────
 window.onload = () => {
   if (sessionStorage.getItem('kc_auth')) {
@@ -685,3 +747,4 @@ window.onload = () => {
 </script>
 </body>
 </html>
+  
