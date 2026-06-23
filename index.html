@@ -337,7 +337,7 @@ td { padding: 8px 13px; vertical-align: middle; }
 const SHEET_ID = '1aNmKdJRIQosNpvAwH5CfZUaNZvfZ9yHgoK6yflGi5cA';
 const GID      = '696153871';
 const PW       = 'Kitchino_20200';
-const SAFE_CRM = ['OTO','Auditing','Production','Final QC','Store','Recheck','Shipping','Installation','Delivered','Declined'];
+const SAFE_CRM = ['OTO','Auditing','Production','Final QC','Store','Recheck','Shipping','Installation','Delivered'];
 // Stages where contract is still critical (pre-production). Anything after this = not urgent.
 const CRITICAL_CRM = new Set(['contracted','electromechanic','shablona','designer working']);
 
@@ -413,7 +413,8 @@ function parse(rows) {
       crmCode,
       age:      parseInt(r['Contract Age (Days)']) || 0,
       aging:    normAging(String(r['Aging Category'] || '')),
-      safe:     SAFE_CRM.some(s => s.toLowerCase() === crmStatus.toLowerCase() || s.toLowerCase() === crmCode.toLowerCase())
+      safe:     SAFE_CRM.some(s => s.toLowerCase() === crmStatus.toLowerCase() || s.toLowerCase() === crmCode.toLowerCase()),
+      declined: crmStatus.toLowerCase() === 'declined' || crmCode.toLowerCase() === 'declined'
     };
   });
 }
@@ -466,16 +467,18 @@ function render() {
 
 // ── KPIs ──────────────────────────────────────────────────────────────────
 function renderKPIs() {
-  const d = FILTERED, n = d.length || 1;
-  const over60  = d.filter(r => r.aging === 'Over 60 Days').length;
-  const days60  = d.filter(r => r.aging === '60 Days' || r.aging === '45 Days').length;
-  const days030 = d.filter(r => r.aging === '0-30 Days').length;
-  const pending = d.filter(r => r.status === '' || r.status === 'Contract Pending').length;
-  const safe    = d.filter(r => r.safe).length;
-  const invoices= d.filter(r => r.status === 'فاتورة').length;
-  const contracts=d.filter(r => r.status !== 'فاتورة').length;
-  const delivered=d.filter(r => r.status === 'تم التسليم').length;
-  const inDelContracts = d.filter(r => r.status === 'قيد التسليم');
+  const d = FILTERED;
+  const nd = d.filter(r => !r.declined);
+  const n = nd.length || 1;
+  const over60  = nd.filter(r => r.aging === 'Over 60 Days').length;
+  const days60  = nd.filter(r => r.aging === '60 Days' || r.aging === '45 Days').length;
+  const days030 = nd.filter(r => r.aging === '0-30 Days').length;
+  const pending = nd.filter(r => r.status === '' || r.status === 'Contract Pending').length;
+  const safe    = nd.filter(r => r.safe).length;
+  const invoices= nd.filter(r => r.status === 'فاتورة').length;
+  const contracts=nd.filter(r => r.status !== 'فاتورة').length;
+  const delivered=nd.filter(r => r.status === 'تم التسليم').length;
+  const inDelContracts = nd.filter(r => r.status === 'قيد التسليم');
   const inDel = inDelContracts.length;
   const delByDesigner = {};
   inDelContracts.forEach(r => { if(r.designer) delByDesigner[r.designer] = (delByDesigner[r.designer]||0)+1; });
@@ -485,7 +488,7 @@ function renderKPIs() {
   document.getElementById('row1').innerHTML = `
     <div class="kpi bl-blue">
       <div class="kpi-lbl">Total Sales Orders</div>
-      <div class="kpi-val" style="color:#4f8ef7">${d.length}</div>
+      <div class="kpi-val" style="color:#4f8ef7">${nd.length}</div>
       <div class="kpi-sub">active orders</div>
     </div>
     <div class="kpi bl-red">
@@ -556,7 +559,7 @@ const pct = (a,b) => b ? Math.round(a/b*100) : 0;
 
 // ── CRM Pipeline ──────────────────────────────────────────────────────────
 function renderPipeline() {
-  const n = FILTERED.length || 1;
+  const n = FILTERED.filter(r => !r.declined).length || 1;
   const counts = {};
   FILTERED.forEach(r => { if(r.crm) counts[r.crm] = (counts[r.crm]||0)+1; });
   document.getElementById('pipeline').innerHTML = CRM_ORDER.map(name => {
@@ -595,11 +598,13 @@ function closeCrmModal() {
 
 // ── Charts ────────────────────────────────────────────────────────────────
 function renderCharts() {
-  const d = FILTERED, n = d.length||1;
+  const d = FILTERED;
+  const nd = d.filter(r => !r.declined);
+  const n = nd.length||1;
 
   // Aging
   const aging = {};
-  d.forEach(r => aging[r.aging] = (aging[r.aging]||0)+1);
+  nd.forEach(r => aging[r.aging] = (aging[r.aging]||0)+1);
   document.getElementById('agingChart').innerHTML =
     ['Over 60 Days','60 Days','45 Days','0-30 Days','No Date'].map(lbl => {
       const c=aging[lbl]||0, clr=AGING_CLR[lbl];
@@ -608,7 +613,7 @@ function renderCharts() {
 
   // Status breakdown
   const st = {};
-  d.forEach(r => st[r.status||'—'] = (st[r.status||'—']||0)+1);
+  nd.forEach(r => st[r.status||'—'] = (st[r.status||'—']||0)+1);
   const maxSt = Math.max(...Object.values(st),1);
   document.getElementById('statusChart').innerHTML =
     Object.entries(st).sort((a,b)=>b[1]-a[1]).map(([l,c]) =>
@@ -626,7 +631,7 @@ function renderCharts() {
 
   // Designer workload
   const des = {};
-  d.forEach(r => { if(r.designer) des[r.designer]=(des[r.designer]||0)+1; });
+  nd.forEach(r => { if(r.designer) des[r.designer]=(des[r.designer]||0)+1; });
   const maxDes = Math.max(...Object.values(des),1);
   document.getElementById('designerChart').innerHTML =
     Object.entries(des).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([l,c]) =>
@@ -767,4 +772,3 @@ window.onload = () => {
 </script>
 </body>
 </html>
-  
