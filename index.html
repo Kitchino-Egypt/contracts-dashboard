@@ -624,8 +624,9 @@ function renderKPIs() {
   const days030 = nd.filter(r => r.aging === '0-30 Days').length;
   const pending = nd.filter(r => r.status === '' || r.status === 'Contract Pending').length;
   const safe    = nd.filter(r => r.safe).length;
-  const invoices= nd.filter(r => r.status === 'فاتورة').length;
-  const contracts=nd.filter(r => r.status !== 'فاتورة').length;
+  const isInvoice = r => r.status === 'فاتورة' || r.status === 'اضافات';
+  const invoices= nd.filter(isInvoice).length;
+  const contracts=nd.filter(r => !isInvoice(r)).length;
   const delivered=nd.filter(r => r.status === 'تم التسليم').length;
   const inDelContracts = nd.filter(r => r.status === 'قيد التسليم');
   const inDel = inDelContracts.length;
@@ -671,7 +672,7 @@ function renderKPIs() {
       <div class="big-sub">${pct(contracts,n)}% of total</div>
     </div>
     <div class="big-card bl-yel" style="flex:1;min-width:130px">
-      <div class="big-lbl"><span style="color:#fbbf24;font-size:14px">●</span> فاتورة / INVOICE</div>
+      <div class="big-lbl"><span style="color:#fbbf24;font-size:14px">●</span> اضافات / INVOICE</div>
       <div class="big-val" style="color:#fbbf24">${invoices}</div>
       <div class="big-sub">${pct(invoices,n)}% of total</div>
     </div>
@@ -864,7 +865,7 @@ function renderAll() {
 function statusBadge(s) {
   if (s === 'تم التسليم')   return `<span class="sb sb-delivered">${s}</span>`;
   if (s === 'قيد التسليم')  return `<span class="sb sb-indelivery">${s}</span>`;
-  if (s === 'فاتورة')        return `<span class="sb sb-invoice">${s}</span>`;
+  if (s === 'فاتورة' || s === 'اضافات') return `<span class="sb sb-invoice">${s}</span>`;
   if (s === 'الغاء')         return `<span class="sb sb-cancelled">${s}</span>`;
   if (s === 'مرتجع')         return `<span class="sb sb-return">${s}</span>`;
   return `<span class="sb sb-other">${s||'—'}</span>`;
