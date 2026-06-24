@@ -165,6 +165,59 @@ td { padding: 8px 13px; vertical-align: middle; }
   .kpi-val { font-size: 24px; }
   .big-val { font-size: 28px; }
 }
+
+/* ── Notes button & dot ─────────────────────────────────────────────────── */
+.note-btn {
+  background: rgba(79,142,247,0.12); border: 1px solid rgba(79,142,247,0.25);
+  color: #4f8ef7; border-radius: 6px; padding: 3px 9px; font-size: 11px;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  transition: background 0.15s; white-space: nowrap;
+}
+.note-btn:hover { background: rgba(79,142,247,0.25); }
+.note-dot {
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; flex-shrink: 0;
+}
+/* ── Notes Modal ─────────────────────────────────────────────────────────── */
+#nm-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+#nm-modal.open { display: flex; }
+.nm-card {
+  background: #1e2335; border: 1px solid #2a3050; border-radius: 16px;
+  padding: 28px 30px; width: 480px; max-width: 95vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.nm-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+.nm-cname  { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+.nm-oid    { font-size: 11px; color: #6b7a9e; margin-top: 3px; }
+.nm-close  { background: none; border: none; color: #6b7a9e; font-size: 20px; cursor: pointer; line-height:1; }
+.nm-close:hover { color: #e2e8f0; }
+.nm-lbl    { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7a9e; margin-bottom: 6px; }
+.nm-textarea {
+  width: 100%; background: #131722; border: 1px solid #2a3050; border-radius: 8px;
+  padding: 10px 12px; color: #e2e8f0; font-size: 13px; font-family: inherit;
+  resize: vertical; min-height: 90px; outline: none; transition: border-color 0.2s; box-sizing: border-box;
+}
+.nm-textarea:focus { border-color: #4f8ef7; }
+.nm-dates  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.nm-input  {
+  width: 100%; background: #131722; border: 1px solid #2a3050; border-radius: 8px;
+  padding: 8px 12px; color: #e2e8f0; font-size: 13px; font-family: inherit;
+  outline: none; transition: border-color 0.2s; box-sizing: border-box;
+}
+.nm-input:focus  { border-color: #4f8ef7; }
+.nm-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; }
+.nm-status { font-size: 12px; }
+.nm-save   {
+  background: #4f8ef7; border: none; border-radius: 8px;
+  padding: 9px 22px; color: #fff; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: background 0.2s;
+}
+.nm-save:hover    { background: #6ba3ff; }
+.nm-save:disabled { background: #2a3050; color: #6b7a9e; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -358,6 +411,98 @@ const CRM_ORDER = ['Contracted','Electromechanic','Shablona','Designer Working',
 
 let ALL = [], FILTERED = [], activeDesigner = 'All';
 
+// ── Notes ─────────────────────────────────────────────────────────────────
+// After deploying CustomerNotes.gs, paste the Web App URL below:
+const NOTES_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzw3-7GpZZboX_2KqaVWL0jj-0sKbjC2bgyRxD3D5AZ7SJyqnR-RFihFeWfnl8Z7wIbPw/exec';
+let NOTES_MAP = {}; // orderId → note object
+
+function loadNotes() {
+  if (!NOTES_SCRIPT_URL || NOTES_SCRIPT_URL.includes('PASTE_YOUR')) return;
+  fetch(NOTES_SCRIPT_URL)
+    .then(r => r.json())
+    .then(data => {
+      NOTES_MAP = {};
+      data.forEach(n => { NOTES_MAP[n['Order ID']] = n; });
+      renderUrgent();
+      renderAll();
+    })
+    .catch(() => {});
+}
+
+function noteDot(orderId) {
+  const n = NOTES_MAP[orderId];
+  if (!n || !n['Note']) return '';
+  let clr = '#4f8ef7';
+  if (n['Follow-up Date']) {
+    const diff = Math.ceil((new Date(n['Follow-up Date']) - new Date()) / 86400000);
+    if      (diff <  0) clr = '#ef4444';
+    else if (diff <= 2) clr = '#fbbf24';
+    else                clr = '#34d399';
+  }
+  return '<span class="note-dot" style="background:' + clr + '" title="' + (n['Note']||'').substring(0,60) + '"></span>';
+}
+
+function openNoteModal(orderId, customerName) {
+  const n = NOTES_MAP[orderId] || {};
+  document.getElementById('nm-title').textContent    = customerName;
+  document.getElementById('nm-orderid').textContent  = orderId;
+  document.getElementById('nm-note').value           = n['Note'] || '';
+  document.getElementById('nm-sent').value           = n['Message Sent Date'] || new Date().toISOString().split('T')[0];
+  document.getElementById('nm-followup').value       = n['Follow-up Date'] || '';
+  document.getElementById('nm-status').textContent   = '';
+  const m = document.getElementById('nm-modal');
+  m.dataset.orderId      = orderId;
+  m.dataset.customerName = customerName;
+  m.classList.add('open');
+}
+
+function closeNoteModal() {
+  document.getElementById('nm-modal').classList.remove('open');
+}
+
+function saveNote() {
+  const modal        = document.getElementById('nm-modal');
+  const orderId      = modal.dataset.orderId;
+  const customerName = modal.dataset.customerName;
+  const note         = document.getElementById('nm-note').value.trim();
+  const messageSent  = document.getElementById('nm-sent').value;
+  const followUpDate = document.getElementById('nm-followup').value;
+  const statusEl     = document.getElementById('nm-status');
+  const btn          = document.getElementById('nm-save-btn');
+
+  if (!NOTES_SCRIPT_URL || NOTES_SCRIPT_URL.includes('PASTE_YOUR')) {
+    statusEl.style.color = '#ef4444';
+    statusEl.textContent = 'Script URL not configured yet.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  statusEl.textContent = '';
+
+  fetch(NOTES_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ orderId, customerName, note, messageSent, followUpDate })
+  }).then(() => {
+    NOTES_MAP[orderId] = { 'Order ID': orderId, 'Customer Name': customerName,
+      'Note': note, 'Message Sent Date': messageSent, 'Follow-up Date': followUpDate };
+    renderUrgent();
+    renderAll();
+    btn.disabled = false;
+    btn.textContent = 'Save Note';
+    statusEl.style.color = '#34d399';
+    statusEl.textContent = 'Saved';
+    setTimeout(closeNoteModal, 900);
+  }).catch(() => {
+    btn.disabled = false;
+    btn.textContent = 'Save Note';
+    statusEl.style.color = '#ef4444';
+    statusEl.textContent = 'Save failed.';
+  });
+}
+
 // ── Password ──────────────────────────────────────────────────────────────
 function checkPw() {
   if (document.getElementById('pwInp').value === PW) {
@@ -387,6 +532,7 @@ function loadData() {
       buildMonthFilter();
       applyFilters();
       document.getElementById('updLbl').textContent = 'Updated ' + new Date().toLocaleTimeString();
+      loadNotes();
       document.getElementById('loadingBar').style.display = 'none';
       document.getElementById('content').style.display   = 'block';
     })
@@ -444,6 +590,7 @@ function applyFilters() {
   const m = document.getElementById('monthSel').value;
   const st = document.getElementById('stageSel').value;
   FILTERED = ALL.filter(r => {
+    if (r.declined) return false; // exclude Declined from all counts
     if (s && !r.name.toLowerCase().includes(s) &&
         !r.orderId.includes(s) && !r.designer.toLowerCase().includes(s)) return false;
     if (m) {
@@ -674,6 +821,7 @@ function renderUrgent() {
       <td><span class="ab ab-over60">Over 60 Days</span></td>
       <td class="td-date">${r.date}</td>
       <td class="td-age" style="color:#ef4444">${r.age}d</td>
+      <td><button class="note-btn" onclick="openNoteModal('${r.orderId}',`${r.name}`)">📝 ${noteDot(r.orderId)}</button></td>
     </tr>`).join('')
   : `<tr><td colspan="8" style="text-align:center;color:#6b7a9e;padding:24px">No urgent contracts</td></tr>`;
 }
@@ -704,6 +852,7 @@ function renderAll() {
       <td><span class="ab ${agingBadge}">${r.aging}</span></td>
       <td class="td-date">${r.date}</td>
       <td class="td-age" style="color:${clr}">${r.age}d</td>
+      <td><button class="note-btn" onclick="openNoteModal('${r.orderId}',`${r.name}`)">📝 ${noteDot(r.orderId)}</button></td>
     </tr>`;
   }).join('') || `<tr><td colspan="8" style="text-align:center;color:#6b7a9e;padding:24px">No contracts found</td></tr>`;
 }
@@ -770,5 +919,34 @@ window.onload = () => {
   }
 };
 </script>
+
+<!-- ── Notes Modal ───────────────────────────────────────────────────────── -->
+<div id="nm-modal">
+  <div class="nm-card">
+    <div class="nm-header">
+      <div>
+        <div class="nm-cname" id="nm-title"></div>
+        <div class="nm-oid">Order: <span id="nm-orderid"></span></div>
+      </div>
+      <button class="nm-close" onclick="closeNoteModal()">&#x2715;</button>
+    </div>
+    <div class="nm-lbl">Note</div>
+    <textarea class="nm-textarea" id="nm-note" placeholder="Write your follow-up note here&#x2026;"></textarea>
+    <div class="nm-dates">
+      <div>
+        <div class="nm-lbl">Message Sent Date</div>
+        <input type="date" class="nm-input" id="nm-sent">
+      </div>
+      <div>
+        <div class="nm-lbl">Follow-up Date</div>
+        <input type="date" class="nm-input" id="nm-followup">
+      </div>
+    </div>
+    <div class="nm-footer">
+      <span class="nm-status" id="nm-status"></span>
+      <button class="nm-save" id="nm-save-btn" onclick="saveNote()">Save Note</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
