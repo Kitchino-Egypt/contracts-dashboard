@@ -442,7 +442,9 @@ function noteDot(orderId) {
   return '<span class="note-dot" style="background:' + clr + '" title="' + (n['Note']||'').substring(0,60) + '"></span>';
 }
 
-function openNoteModal(orderId, customerName) {
+function openNoteModal(btn) {
+  const orderId      = btn.dataset.id;
+  const customerName = btn.dataset.name;
   const n = NOTES_MAP[orderId] || {};
   document.getElementById('nm-title').textContent    = customerName;
   document.getElementById('nm-orderid').textContent  = orderId;
@@ -821,7 +823,8 @@ function renderUrgent() {
       <td><span class="ab ab-over60">Over 60 Days</span></td>
       <td class="td-date">${r.date}</td>
       <td class="td-age" style="color:#ef4444">${r.age}d</td>
-      <td><button class="note-btn" onclick="openNoteModal('${r.orderId}',`${r.name}`)">📝 ${noteDot(r.orderId)}</button></td>
+      <td><button class="note-btn" onclick="openNoteModal(this)"
+          data-id="${r.orderId}" data-name="${r.name.replace(/"/g,'&quot;')}">📝 ${noteDot(r.orderId)}</button></td>
     </tr>`).join('')
   : `<tr><td colspan="8" style="text-align:center;color:#6b7a9e;padding:24px">No urgent contracts</td></tr>`;
 }
@@ -852,7 +855,8 @@ function renderAll() {
       <td><span class="ab ${agingBadge}">${r.aging}</span></td>
       <td class="td-date">${r.date}</td>
       <td class="td-age" style="color:${clr}">${r.age}d</td>
-      <td><button class="note-btn" onclick="openNoteModal('${r.orderId}',`${r.name}`)">📝 ${noteDot(r.orderId)}</button></td>
+      <td><button class="note-btn" onclick="openNoteModal(this)"
+          data-id="${r.orderId}" data-name="${r.name.replace(/"/g,'&quot;')}">📝 ${noteDot(r.orderId)}</button></td>
     </tr>`;
   }).join('') || `<tr><td colspan="8" style="text-align:center;color:#6b7a9e;padding:24px">No contracts found</td></tr>`;
 }
