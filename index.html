@@ -592,7 +592,6 @@ function applyFilters() {
   const m = document.getElementById('monthSel').value;
   const st = document.getElementById('stageSel').value;
   FILTERED = ALL.filter(r => {
-    if (r.declined) return false; // exclude Declined from all counts
     if (s && !r.name.toLowerCase().includes(s) &&
         !r.orderId.includes(s) && !r.designer.toLowerCase().includes(s)) return false;
     if (m) {
@@ -838,8 +837,9 @@ function setDesigner(d) {
 // ── All Contracts Table ───────────────────────────────────────────────────
 function renderAll() {
   const d = FILTERED;
-  document.getElementById('allCnt').textContent = d.length + ' contracts';
-  document.getElementById('allTbl').innerHTML = d.slice(0,300).map(r => {
+  const nd_all = d.filter(r => !r.declined);
+  document.getElementById('allCnt').textContent = nd_all.length + ' contracts';
+  document.getElementById('allTbl').innerHTML = nd_all.slice(0,300).map(r => {
     const clr = AGING_CLR[r.aging]||'#6b7a9e';
     const agingBadge = {
       'Over 60 Days':'ab-over60','60 Days':'ab-60','45 Days':'ab-45','0-30 Days':'ab-030'
