@@ -218,6 +218,13 @@ td { padding: 8px 13px; vertical-align: middle; }
 }
 .nm-save:hover    { background: #6ba3ff; }
 .nm-save:disabled { background: #2a3050; color: #6b7a9e; cursor: not-allowed; }
+
+.crm-name-link {
+  color: #e2e8f0; text-decoration: none;
+  border-bottom: 1px dashed rgba(79,142,247,0.5);
+  transition: color 0.15s, border-color 0.15s;
+}
+.crm-name-link:hover { color: #4f8ef7; border-bottom-color: #4f8ef7; }
 </style>
 </head>
 <body>
@@ -560,6 +567,7 @@ function parse(rows) {
       crm,
       crmCode,
       age:      parseInt(r['Contract Age (Days)']) || 0,
+      crmLink:  String(r['CRM Link'] || '').trim(),
       aging:    normAging(String(r['Aging Category'] || '')),
       safe:     SAFE_CRM.some(s => s.toLowerCase() === crmStatus.toLowerCase() || s.toLowerCase() === crmCode.toLowerCase()),
       declined: crmStatus.toLowerCase() === 'declined' || crmCode.toLowerCase() === 'declined'
@@ -816,7 +824,7 @@ function renderUrgent() {
   document.getElementById('urgentTbl').innerHTML = rows.length ? rows.map(r => `
     <tr>
       <td class="td-id">${r.orderId}</td>
-      <td>${r.name}</td>
+      <td>${r.crmLink ? `<a href="${r.crmLink}" target="_blank" class="crm-name-link">${r.name}</a>` : r.name}</td>
       <td class="td-designer">${r.designer}</td>
       <td>${statusBadge(r.status)}</td>
       <td>${r.crm ? `<span class="crm-b" style="color:${CRM_CLR[r.crm]||'#94a3b8'}">${r.crm}</span>` : '—'}</td>
@@ -846,7 +854,7 @@ function renderAll() {
     }[r.aging]||'ab-no';
     return `<tr>
       <td class="td-id">${r.orderId}</td>
-      <td>${r.name}</td>
+      <td>${r.crmLink ? `<a href="${r.crmLink}" target="_blank" class="crm-name-link">${r.name}</a>` : r.name}</td>
       <td class="td-designer">${r.designer}</td>
       <td>${statusBadge(r.status)}</td>
       <td>
