@@ -716,9 +716,10 @@ const pct = (a,b) => b ? Math.round(a/b*100) : 0;
 
 // ── CRM Pipeline ──────────────────────────────────────────────────────────
 function renderPipeline() {
-  const n = FILTERED.filter(r => !r.declined).length || 1;
+  const pipelineRows = FILTERED.filter(r => !r.declined && r.status !== 'اضافات');
+  const n = pipelineRows.length || 1;
   const counts = {};
-  FILTERED.forEach(r => { if(r.crm) counts[r.crm] = (counts[r.crm]||0)+1; });
+  pipelineRows.forEach(r => { if(r.crm) counts[r.crm] = (counts[r.crm]||0)+1; });
   document.getElementById('pipeline').innerHTML = CRM_ORDER.map(name => {
     const c = counts[name]||0, clr = CRM_CLR[name]||'#94a3b8';
     return `<div class="pip-pill" title="Click to view ${name} contracts" onclick="openCrmModal('${name}')">
