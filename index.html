@@ -716,7 +716,7 @@ const pct = (a,b) => b ? Math.round(a/b*100) : 0;
 
 // ── CRM Pipeline ──────────────────────────────────────────────────────────
 function renderPipeline() {
-  const pipelineRows = FILTERED.filter(r => !r.declined && r.status !== 'اضافات');
+  const pipelineRows = FILTERED.filter(r => r.status !== 'اضافات');
   const n = pipelineRows.length || 1;
   const counts = {};
   pipelineRows.forEach(r => { if(r.crm) counts[r.crm] = (counts[r.crm]||0)+1; });
