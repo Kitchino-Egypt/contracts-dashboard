@@ -626,11 +626,12 @@ function renderKPIs() {
   const d = FILTERED;
   const nd = d.filter(r => !r.declined);
   const n = nd.length || 1;
-  // Aging cards: only contracts needing attention (exclude invoices + already delivered)
-  const _needsAction = r => r.status !== 'فاتورة' && r.status !== 'اضافات' && r.status !== 'تم التسليم';
-  const over60  = nd.filter(r => r.aging === 'Over 60 Days' && _needsAction(r)).length;
-  const days60  = nd.filter(r => (r.aging === '60 Days' || r.aging === '45 Days') && _needsAction(r)).length;
-  const days030 = nd.filter(r => r.aging === '0-30 Days' && _needsAction(r)).length;
+  // Over 60 Days: only urgent contracts (in critical early stages or no stage) — matches urgent bar
+  const over60  = FILTERED.filter(r => r.aging === 'Over 60 Days' && (!r.crm || CRITICAL_CRM.has(r.crm.toLowerCase()))).length;
+  // 45-60 and 0-30: contracts only (exclude invoices)
+  const _notInvoice = r => r.status !== 'فاتورة' && r.status !== 'اضافات';
+  const days60  = nd.filter(r => (r.aging === '60 Days' || r.aging === '45 Days') && _notInvoice(r)).length;
+  const days030 = nd.filter(r => r.aging === '0-30 Days' && _notInvoice(r)).length;
   const pending = nd.filter(r => r.status === '' || r.status === 'Contract Pending').length;
   const safe    = nd.filter(r => r.safe).length;
   const isInvoice = r => r.status === 'فاتورة' || r.status === 'اضافات';
@@ -718,19 +719,18 @@ const pct = (a,b) => b ? Math.round(a/b*100) : 0;
 
 // ── CRM Pipeline ──────────────────────────────────────────────────────────
 function renderPipeline() {
-  // Mirror exact CONTRACT KPI filter: non-declined, non-invoice rows = 125
+  // Exactly mirrors CONTRACT KPI: non-declined, non-invoice rows
   const _isInvoice = r => r.status === 'فاتورة' || r.status === 'اضافات';
   const nd = FILTERED.filter(r => !r.declined);
-  const pipelineRows = nd.filter(r => !_isInvoice(r)); // non-declined contracts
-  const declinedContracts = FILTERED.filter(r => r.declined && !_isInvoice(r)); // CRM='Declined' contracts
-  const n = pipelineRows.length + declinedContracts.length || 1; // = full 125 contract count
+  const pipelineRows = nd.filter(r => !_isInvoice(r)); // same set as CONTRACT card
+  const n = pipelineRows.length || 1;
   const counts = {};
   pipelineRows.forEach(r => {
     const stage = r.crm || '__none__';
     counts[stage] = (counts[stage] || 0) + 1;
   });
-  // Contracts with no CRM stage + actually-declined contracts → Declined pill
-  counts['Declined'] = (counts['Declined'] || 0) + (counts['__none__'] || 0) + declinedContracts.length;
+  // Contracts with no CRM stage assigned → show in Declined pill
+  counts['Declined'] = (counts['Declined'] || 0) + (counts['__none__'] || 0);
   delete counts['__none__'];
   document.getElementById('pipeline').innerHTML = CRM_ORDER.map(name => {
     const c = counts[name]||0, clr = CRM_CLR[name]||'#94a3b8';
@@ -790,9 +790,10 @@ function renderCharts() {
       barHtml(l, c, pct(c,maxSt), '#a78bfa')
     ).join('');
 
-  // CRM Distribution
+  // CRM Distribution — contracts only (exclude invoices)
+  const _crmIsInvoice = r => r.status === 'فاتورة' || r.status === 'اضافات';
   const crm = {};
-  d.forEach(r => { if(r.crm) crm[r.crm]=(crm[r.crm]||0)+1; });
+  nd.filter(r => !_crmIsInvoice(r)).forEach(r => { if(r.crm) crm[r.crm]=(crm[r.crm]||0)+1; });
   const maxCrm = Math.max(...Object.values(crm),1);
   document.getElementById('crmDistChart').innerHTML =
     Object.entries(crm).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,c]) =>
