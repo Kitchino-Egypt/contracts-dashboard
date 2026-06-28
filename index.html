@@ -626,9 +626,11 @@ function renderKPIs() {
   const d = FILTERED;
   const nd = d.filter(r => !r.declined);
   const n = nd.length || 1;
-  const over60  = nd.filter(r => r.aging === 'Over 60 Days').length;
-  const days60  = nd.filter(r => r.aging === '60 Days' || r.aging === '45 Days').length;
-  const days030 = nd.filter(r => r.aging === '0-30 Days').length;
+  // Aging cards: only contracts needing attention (exclude invoices + already delivered)
+  const _needsAction = r => r.status !== 'فاتورة' && r.status !== 'اضافات' && r.status !== 'تم التسليم';
+  const over60  = nd.filter(r => r.aging === 'Over 60 Days' && _needsAction(r)).length;
+  const days60  = nd.filter(r => (r.aging === '60 Days' || r.aging === '45 Days') && _needsAction(r)).length;
+  const days030 = nd.filter(r => r.aging === '0-30 Days' && _needsAction(r)).length;
   const pending = nd.filter(r => r.status === '' || r.status === 'Contract Pending').length;
   const safe    = nd.filter(r => r.safe).length;
   const isInvoice = r => r.status === 'فاتورة' || r.status === 'اضافات';
@@ -719,15 +721,16 @@ function renderPipeline() {
   // Mirror exact CONTRACT KPI filter: non-declined, non-invoice rows = 125
   const _isInvoice = r => r.status === 'فاتورة' || r.status === 'اضافات';
   const nd = FILTERED.filter(r => !r.declined);
-  const pipelineRows = nd.filter(r => !_isInvoice(r)); // exactly matches CONTRACT count (125)
-  const n = pipelineRows.length || 1;
+  const pipelineRows = nd.filter(r => !_isInvoice(r)); // non-declined contracts
+  const declinedContracts = FILTERED.filter(r => r.declined && !_isInvoice(r)); // CRM='Declined' contracts
+  const n = pipelineRows.length + declinedContracts.length || 1; // = full 125 contract count
   const counts = {};
   pipelineRows.forEach(r => {
     const stage = r.crm || '__none__';
     counts[stage] = (counts[stage] || 0) + 1;
   });
-  // Contracts with no CRM stage assigned go into the Declined pill
-  counts['Declined'] = (counts['Declined'] || 0) + (counts['__none__'] || 0);
+  // Contracts with no CRM stage + actually-declined contracts → Declined pill
+  counts['Declined'] = (counts['Declined'] || 0) + (counts['__none__'] || 0) + declinedContracts.length;
   delete counts['__none__'];
   document.getElementById('pipeline').innerHTML = CRM_ORDER.map(name => {
     const c = counts[name]||0, clr = CRM_CLR[name]||'#94a3b8';
