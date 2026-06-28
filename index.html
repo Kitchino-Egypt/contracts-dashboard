@@ -796,7 +796,7 @@ function renderCharts() {
   nd.filter(r => !_crmIsInvoice(r)).forEach(r => { if(r.crm) crm[r.crm]=(crm[r.crm]||0)+1; });
   const maxCrm = Math.max(...Object.values(crm),1);
   document.getElementById('crmDistChart').innerHTML =
-    Object.entries(crm).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,c]) =>
+    Object.entries(crm).sort((a,b)=>b[1]-a[1]).map(([l,c]) =>
       barHtml(l, c, pct(c,maxCrm), CRM_CLR[l]||'#94a3b8')
     ).join('');
 
